@@ -751,6 +751,7 @@ function renderCalendar(){
     :'';
 }
 
+let hasPushedOverlayState=false,isHandlingPopstate=false;
 function closeAllSidebars(){
   document.getElementById('detail-overlay').classList.add('hide');
   document.getElementById('addcoffee-overlay').classList.add('hide');
@@ -758,10 +759,32 @@ function closeAllSidebars(){
   document.getElementById('cal-popup').innerHTML='';
   document.getElementById('overlay-backdrop').classList.remove('active');
   document.body.classList.remove('has-sidebar');
+  if(hasPushedOverlayState){
+    const wasPopstate=isHandlingPopstate;
+    setTimeout(()=>{
+      if(!document.body.classList.contains('has-sidebar')){
+        hasPushedOverlayState=false;
+        if(!wasPopstate)history.back();
+      }
+    },0);
+  }
 }
+window.addEventListener('popstate',()=>{
+  if(hasPushedOverlayState){
+    isHandlingPopstate=true;
+    closeAllSidebars();
+    editingCoffeeId=null;photoDataUrl=null;editingBrewCoffeeId=null;editingBrewEntryIdx=null;
+    render();
+    isHandlingPopstate=false;
+  }
+});
 function markSidebarOpen(){
   document.body.classList.add('has-sidebar');
   document.getElementById('overlay-backdrop').classList.add('active');
+  if(!hasPushedOverlayState){
+    hasPushedOverlayState=true;
+    history.pushState({ctOverlay:true},'',location.href);
+  }
 }
 
 function changeMonth(dir){calMonth+=dir;if(calMonth>11){calMonth=0;calYear++;}if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
