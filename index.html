@@ -612,7 +612,8 @@ function cardHtml(c,opts){
   const photoHtml=c.photo?`<img src="${c.photo}" alt="">`:'';
   const isArchiveView=opts&&opts.archive;
   const hasFrozenRemaining=c.bagSize&&c.remaining!=null&&c.remaining!==''&&parseFloat(c.remaining)>0;
-  const pillText=isArchiveView?(hasFrozenRemaining?`${Math.round(parseFloat(c.remaining))}g left`:''):statusLabel(c);
+  const brewCountText=(c.brewLog||[]).length?`${c.brewLog.length} brew${c.brewLog.length===1?'':'s'}`:'No brews yet';
+  const pillText=isArchiveView?(hasFrozenRemaining?`${Math.round(parseFloat(c.remaining))}g left · ${brewCountText}`:brewCountText):statusLabel(c);
   const pillColor=isArchiveView?'#9B9892':statusColor;
   const dotColor=isArchiveView?'var(--faint)':idColor;
   return `<div class="ccard" onclick="openDetail('${c.id}')">
