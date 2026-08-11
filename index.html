@@ -530,6 +530,10 @@ function statusLabel(c){
     return`Opened · ${fmtShort(c.openDate)}`;
   }
   if(s==='bestby'){const d=daysBetween(t,c.bestby);return d<0?'Past best-by':`Best-by · ${d}d left`;}
+  if(s==='archived'){
+    if(c.bagSize&&c.remaining!=null&&c.remaining!==''&&parseFloat(c.remaining)>0)return`Archived · ${Math.round(parseFloat(c.remaining))}g left`;
+    return'';
+  }
   return'';
 }
 function nextUpScore(c){
@@ -607,7 +611,8 @@ function cardHtml(c,opts){
   const status=getStatus(c),statusColor=STATUS_COLOR[status],idColor=coffeeColor(c);
   const photoHtml=c.photo?`<img src="${c.photo}" alt="">`:'';
   const isArchiveView=opts&&opts.archive;
-  const pillText=isArchiveView?((c.brewLog||[]).length?`${c.brewLog.length} brew${c.brewLog.length===1?'':'s'}`:'No brews yet'):statusLabel(c);
+  const hasFrozenRemaining=c.bagSize&&c.remaining!=null&&c.remaining!==''&&parseFloat(c.remaining)>0;
+  const pillText=isArchiveView?(hasFrozenRemaining?`${Math.round(parseFloat(c.remaining))}g left`:''):statusLabel(c);
   const pillColor=isArchiveView?'#9B9892':statusColor;
   const dotColor=isArchiveView?'var(--faint)':idColor;
   return `<div class="ccard" onclick="openDetail('${c.id}')">
@@ -618,7 +623,7 @@ function cardHtml(c,opts){
         <div class="cmeta">${esc([c.roaster,c.origin].filter(Boolean).join(' · ')||'—')}${c.process?`<span class="cmeta-process-span"> · ${esc(c.process)}</span>`:''}</div>
         ${c.tasteNotes?`<div class="cnotes zh-text">${esc(c.tasteNotes)}</div>`:''}
       </div>
-      <div class="cpill-wrap"><span class="cpill" style="color:${pillColor};border-color:${pillColor}55;">${pillText}</span></div>
+      ${pillText?`<div class="cpill-wrap"><span class="cpill" style="color:${pillColor};border-color:${pillColor}55;">${pillText}</span></div>`:''}
     </div>
   </div>`;
 }
@@ -959,7 +964,7 @@ function renderDetail(){
       ${hasPhoto?`<img src="${c.photo}" alt="">`:''}
       <button class="detail-back" onclick="closeDetail()">&#8249;</button>
       <div class="detail-hero-caption">
-        ${(!c.archived&&statusLabel(c))?`<div class="detail-hero-status"><span class="cpill disp" id="hero-status-pill" ${(!c.archived&&c.bagSize&&(status==='opened'||status==='bestby'))?`onclick="editRemainingPill(event,'${c.id}')" style="color:${color};border-color:${color}66;background:linear-gradient(${color}33,${color}33),rgba(255,255,255,0.88);cursor:pointer;"`:`style="color:${color};border-color:${color}66;background:linear-gradient(${color}33,${color}33),rgba(255,255,255,0.88);"`}>${statusLabel(c)}</span></div>`:''}
+        ${statusLabel(c)?`<div class="detail-hero-status"><span class="cpill disp" id="hero-status-pill" ${(c.bagSize&&(status==='opened'||status==='bestby'||status==='archived'))?`onclick="editRemainingPill(event,'${c.id}')" style="color:${color};border-color:${color}66;background:linear-gradient(${color}33,${color}33),rgba(255,255,255,0.88);cursor:pointer;"`:`style="color:${color};border-color:${color}66;background:linear-gradient(${color}33,${color}33),rgba(255,255,255,0.88);"`}>${statusLabel(c)}</span></div>`:''}
         <div class="origin">${esc([c.roaster,c.origin].filter(Boolean).join(' · '))}</div>
         <div class="name disp">${esc(c.name||'Unnamed coffee')}</div>
         <div class="roaster">${esc([c.process,c.producer].filter(Boolean).join(' · '))}</div>
@@ -979,6 +984,7 @@ function renderDetail(){
     <div class="detail-footer">
       <span class="link-quiet" onclick="editCoffeeFromDetail('${c.id}')">Edit</span>
       <span class="link-quiet" onclick="${c.archived?`unarchiveFromDetail('${c.id}')`:`archiveFromDetail('${c.id}')`}">${c.archived?'Restore':'Archive'}</span>
+      ${(c.archived&&c.bagSize&&c.remaining!=null&&c.remaining!==''&&parseFloat(c.remaining)>0)?`<span class="link-quiet" onclick="clearRemaining('${c.id}')">Clear</span>`:''}
       <span class="link-danger" onclick="deleteFromDetail('${c.id}')">Delete</span>
     </div>`;
   sizeDatesGrid();
@@ -1018,6 +1024,14 @@ async function saveRemaining(id){
   if(c.id&&!String(c.id).startsWith('local-'))
     try{await dbUpdate(c.id,{remaining_g:c.remaining!==''?parseFloat(c.remaining):null});setSyncStatus('synced');}
     catch(e){queueOp({type:'update',id:c.id,row:{remaining_g:c.remaining!==''?parseFloat(c.remaining):null}});setSyncStatus('offline');}
+}
+async function clearRemaining(id){
+  const c=findCoffee(id);if(!c)return;
+  c.remaining='0';
+  saveLocal();renderDetail();
+  if(c.id&&!String(c.id).startsWith('local-'))
+    try{await dbUpdate(c.id,{remaining_g:0});setSyncStatus('synced');}
+    catch(e){queueOp({type:'update',id:c.id,row:{remaining_g:0}});setSyncStatus('offline');}
 }
 function editCoffeeFromDetail(id){closeDetail();openAddCoffee(id);}
 async function archiveFromDetail(id){await archiveCoffee(id,true);renderDetail();}
