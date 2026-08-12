@@ -64,6 +64,11 @@ button{cursor:pointer;background:none;border:none;}
 .fab-add{width:30px;height:30px;border-radius:50%;background:var(--text);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
 
 .sort-row{display:flex;gap:6px;padding:0 1.35rem;margin-bottom:16px;overflow-x:auto;}
+.search-row{padding:0 1.35rem;margin-bottom:12px;}
+.search-input-wrap{position:relative;display:flex;align-items:center;}
+.search-input-wrap svg{position:absolute;left:12px;width:15px;height:15px;color:var(--faint);pointer-events:none;}
+.search-input{width:100%;padding:9px 12px 9px 34px;border-radius:20px;background:#ECEAE7;border:none;font-size:15px;color:var(--text);}
+.search-input::placeholder{color:var(--muted);}
 .sort-pill{flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:15px;background:#ECEAE7;color:var(--muted);white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;line-height:1;}
 .sort-pill.active{background:var(--text);color:#fff;}
 
@@ -146,6 +151,8 @@ body.has-sidebar .tabbar{display:none;}
 .detail-hero img{width:100%;height:100%;object-fit:cover;display:block;}
 /* back button — plain chevron */
 .detail-back{position:absolute;top:18px;left:18px;color:rgba(255,255,255,.9);font-size:22px;line-height:1;background:none;border:none;cursor:pointer;padding:4px 8px;}
+.detail-price{position:absolute;top:18px;right:18px;text-align:right;color:rgba(255,255,255,.9);font-size:13px;line-height:1.5;}
+.detail-hero-noimg .detail-price{color:var(--muted);}
 .detail-hero-status{margin-bottom:18px;}
 .detail-hero-noimg .detail-back{color:var(--text);}
 .detail-hero-caption{position:absolute;bottom:0;left:0;right:0;padding:16px 20px 20px;background:linear-gradient(to top,rgba(0,0,0,.55),transparent);}
@@ -360,6 +367,10 @@ body.has-sidebar .tabbar{display:none;}
       </div>
       <button class="fab-add" onclick="openAddCoffee('new')">+</button>
     </div>
+    <div class="search-row"><div class="search-input-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" class="search-input" id="list-search-input" placeholder="Search coffees" oninput="setListSearch(this.value)">
+    </div></div>
     <div class="sort-row" id="sort-row"></div>
     <div class="clist" id="coffee-list">
       <div class="ccard skeleton-card"><div class="cphoto skeleton-block"></div><div class="cinfo"><div><div class="skeleton-line" style="width:55%;height:15px;margin-bottom:8px;"></div><div class="skeleton-line" style="width:70%;height:11px;margin-bottom:8px;"></div><div class="skeleton-line" style="width:85%;height:11px;"></div></div><div class="skeleton-line" style="width:40%;height:20px;border-radius:20px;"></div></div></div>
@@ -372,6 +383,10 @@ body.has-sidebar .tabbar{display:none;}
     <div class="archive-wrap">
       <div class="archive-count" id="archive-count">0 archived</div>
       <div class="archive-title disp">Archive</div>
+      <div class="search-row" style="padding:0;margin-bottom:16px;"><div class="search-input-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" id="archive-search-input" placeholder="Search archive" oninput="setArchiveSearch(this.value)">
+      </div></div>
     </div>
     <div class="clist" id="archive-list"></div>
   </div>
@@ -442,7 +457,7 @@ function HEADERS(){const s=getSession();const h={'Content-Type':'application/jso
 function fetchWithTimeout(url,options,ms=8000){return Promise.race([fetch(url,options),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),ms))]);}
 
 async function dbGet(){
-  const r=await fetchWithTimeout(NEON_URL+'/coffees?select=id,name,roaster,origin,process,producer,taste_notes,roast_date,rest_days,ready_date,open_date,best_by,bag_size_g,remaining_g,brew_log,archived,user_id,created_at&order=created_at.desc',{headers:{...HEADERS(),'Prefer':'return=representation'}});
+  const r=await fetchWithTimeout(NEON_URL+'/coffees?select=id,name,roaster,origin,process,producer,taste_notes,roast_date,rest_days,ready_date,open_date,best_by,bag_size_g,remaining_g,full_price,brew_log,archived,user_id,created_at&order=created_at.desc',{headers:{...HEADERS(),'Prefer':'return=representation'}});
   if(!r.ok)throw new Error(await r.text());
   return r.json();
 }
@@ -456,14 +471,15 @@ async function dbInsert(row){const r=await fetchWithTimeout(NEON_URL+'/coffees',
 async function dbUpdate(id,row){const r=await fetchWithTimeout(NEON_URL+'/coffees?id=eq.'+id,{method:'PATCH',headers:{...HEADERS(),'Prefer':'return=representation'},body:JSON.stringify(row)});if(!r.ok)throw new Error(await r.text());return(await r.json())[0];}
 async function dbDelete(id){const r=await fetchWithTimeout(NEON_URL+'/coffees?id=eq.'+id,{method:'DELETE',headers:HEADERS()});if(!r.ok)throw new Error(await r.text());}
 
-function fromDB(row){return{id:row.id,name:row.name||'',roaster:row.roaster||'',origin:row.origin||'',process:row.process||'',producer:row.producer||'',tasteNotes:row.taste_notes||'',roastDate:row.roast_date||'',restDays:row.rest_days?String(row.rest_days):'',readyDate:row.ready_date||'',openDate:row.open_date||'',bestby:row.best_by||'',bagSize:row.bag_size_g!=null?String(row.bag_size_g):'',remaining:row.remaining_g!=null?String(row.remaining_g):'',photo:row.photo||null,brewLog:row.brew_log||[],archived:row.archived||false,userId:row.user_id||null};}
-function toDB(c){return{name:c.name||null,roaster:c.roaster||null,origin:c.origin||null,process:c.process||null,producer:c.producer||null,taste_notes:c.tasteNotes||null,roast_date:c.roastDate||null,rest_days:c.restDays?parseInt(c.restDays):null,ready_date:c.readyDate||null,open_date:c.openDate||null,best_by:c.bestby||null,bag_size_g:c.bagSize!==''&&c.bagSize!=null?parseFloat(c.bagSize):null,remaining_g:c.remaining!==''&&c.remaining!=null?parseFloat(c.remaining):null,photo:c.photo||null,brew_log:c.brewLog||[],archived:c.archived||false,user_id:c.userId||(getSession()&&getSession().userId)||null};}
+function fromDB(row){return{id:row.id,name:row.name||'',roaster:row.roaster||'',origin:row.origin||'',process:row.process||'',producer:row.producer||'',tasteNotes:row.taste_notes||'',roastDate:row.roast_date||'',restDays:row.rest_days?String(row.rest_days):'',readyDate:row.ready_date||'',openDate:row.open_date||'',bestby:row.best_by||'',bagSize:row.bag_size_g!=null?String(row.bag_size_g):'',remaining:row.remaining_g!=null?String(row.remaining_g):'',fullPrice:row.full_price!=null?String(row.full_price):'',photo:row.photo||null,brewLog:row.brew_log||[],archived:row.archived||false,userId:row.user_id||null};}
+function toDB(c){return{name:c.name||null,roaster:c.roaster||null,origin:c.origin||null,process:c.process||null,producer:c.producer||null,taste_notes:c.tasteNotes||null,roast_date:c.roastDate||null,rest_days:c.restDays?parseInt(c.restDays):null,ready_date:c.readyDate||null,open_date:c.openDate||null,best_by:c.bestby||null,bag_size_g:c.bagSize!==''&&c.bagSize!=null?parseFloat(c.bagSize):null,remaining_g:c.remaining!==''&&c.remaining!=null?parseFloat(c.remaining):null,full_price:c.fullPrice!==''&&c.fullPrice!=null?parseFloat(c.fullPrice):null,photo:c.photo||null,brew_log:c.brewLog||[],archived:c.archived||false,user_id:c.userId||(getSession()&&getSession().userId)||null};}
 
 function today(){return new Date().toISOString().split('T')[0];}
 function addDays(ds,n){if(!ds||n===''||n==null)return '';const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+parseInt(n));return d.toISOString().split('T')[0];}
 function daysBetween(a,b){return Math.ceil((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000);}
 function fmtShort(d){if(!d)return'—';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});}
 function fmtFull(d){if(!d)return'—';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+function fmtMoney(n){return parseFloat(n.toFixed(2)).toString();}
 function getReadyDate(c){return c.roastDate?addDays(c.roastDate,c.restDays||0):'';}
 
 const STATUS_COLOR={resting:'#9B9892',ready:'#6E8F5E',opened:'#B8804A',bestby:'#B15C52',archived:'#C5C3BF'};
@@ -564,6 +580,7 @@ function pickGreeting(){
 let coffees=[],currentTab='list';
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 let sortOrder='ready';
+let listSearchQuery='',archiveSearchQuery='';
 let editingCoffeeId=null,photoDataUrl=null;
 let editingBrewCoffeeId=null,editingBrewEntryIdx=null;
 let expandedNotes=new Set();
@@ -599,6 +616,13 @@ function renderSortRow(elId,current,setter){
   ).join('');
 }
 function setSortOrder(k){sortOrder=k;renderList();}
+function setListSearch(v){listSearchQuery=v;renderList();}
+function setArchiveSearch(v){archiveSearchQuery=v;renderArchive();}
+function matchesSearch(c,q){
+  if(!q)return true;
+  const hay=[c.name,c.roaster,c.origin,c.process,c.producer,c.tasteNotes].filter(Boolean).join(' ').toLowerCase();
+  return hay.includes(q.trim().toLowerCase());
+}
 function sortCoffees(list,key){
   const arr=list.slice();
   if(key==='roast')return arr.sort((a,b)=>(b.roastDate||'').localeCompare(a.roastDate||''));
@@ -636,8 +660,12 @@ function renderList(){
   document.getElementById('list-count').innerHTML=`${active.length} coffee${active.length===1?'':'s'}${active.filter(c=>getStatus(c)==='ready').length?` · <span style="color:${STATUS_COLOR.ready};">${active.filter(c=>getStatus(c)==='ready').length} ready</span>`:''}`;
   renderSortRow('sort-row',sortOrder,'setSortOrder');
   const el=document.getElementById('coffee-list');
-  const sorted=sortCoffees(active,sortOrder);
-  if(!sorted.length){el.innerHTML='<div class="empty-msg">No coffees yet — add your first bag.</div>';return;}
+  const filtered=active.filter(c=>matchesSearch(c,listSearchQuery));
+  const sorted=sortCoffees(filtered,sortOrder);
+  if(!sorted.length){
+    el.innerHTML=`<div class="empty-msg">${listSearchQuery?'No coffees match your search.':'No coffees yet — add your first bag.'}</div>`;
+    return;
+  }
   el.innerHTML=sorted.map(cardHtml).join('');
 }
 
@@ -646,14 +674,18 @@ function renderArchive(){
   document.getElementById('archive-count').textContent=`${archived.length} archived`;
   document.getElementById('archive-tab-count').textContent=archived.length?`(${archived.length})`:'';
   const el=document.getElementById('archive-list');
-  const sorted=archived.slice().sort((a,b)=>{
+  const filtered=archived.filter(c=>matchesSearch(c,archiveSearchQuery));
+  const sorted=filtered.slice().sort((a,b)=>{
     // Open date desc; coffees with no open date go to bottom
     if(!a.openDate&&!b.openDate)return(b.roastDate||'').localeCompare(a.roastDate||'');
     if(!a.openDate)return 1;
     if(!b.openDate)return -1;
     return b.openDate.localeCompare(a.openDate);
   });
-  if(!sorted.length){el.innerHTML='<div class="empty-msg">No archived coffees.</div>';return;}
+  if(!sorted.length){
+    el.innerHTML=`<div class="empty-msg">${archiveSearchQuery?'No archived coffees match your search.':'No archived coffees.'}</div>`;
+    return;
+  }
   el.innerHTML=sorted.map(c=>cardHtml(c,{archive:true})).join('');
 }
 
@@ -964,6 +996,7 @@ function renderDetail(){
     <div class="detail-hero ${hasPhoto?'':'detail-hero-noimg'}">
       ${hasPhoto?`<img src="${c.photo}" alt="">`:''}
       <button class="detail-back" onclick="closeDetail()">&#8249;</button>
+      ${(c.fullPrice&&c.bagSize)?`<div class="detail-price">¥${fmtMoney(parseFloat(c.fullPrice))} total<br>¥${fmtMoney(parseFloat(c.fullPrice)/parseFloat(c.bagSize))}/g</div>`:''}
       <div class="detail-hero-caption">
         ${statusLabel(c)?`<div class="detail-hero-status"><span class="cpill disp" id="hero-status-pill" ${(c.bagSize&&(status==='opened'||status==='bestby'||status==='archived'))?`onclick="editRemainingPill(event,'${c.id}')" style="color:${color};border-color:${color}66;background:linear-gradient(${color}33,${color}33),rgba(255,255,255,0.88);cursor:pointer;"`:`style="color:${color};border-color:${color}66;background:linear-gradient(${color}33,${color}33),rgba(255,255,255,0.88);"`}>${statusLabel(c)}</span></div>`:''}
         <div class="origin">${esc([c.roaster,c.origin].filter(Boolean).join(' · '))}</div>
@@ -1070,16 +1103,26 @@ function openAddCoffee(idOrNew){
       <div class="frow"><label>Ready date</label><input id="f-ready" value="${c.readyDate||''}" readonly></div>
       <div class="frow"><label>Opened</label><div class="date-field${c.openDate?'':' placeholder'}" id="f-open-display" onclick="openDatePicker('f-open',autoBestBy)">${c.openDate?fmtFull(c.openDate):'Select date'}</div><input type="hidden" id="f-open" value="${c.openDate||''}"></div>
       <div class="frow"><label>Best-by</label><input id="f-bestby" value="${c.bestby||''}" readonly></div>
-      <div class="frow"><label>Bag size (g)</label><input type="number" id="f-bagsize" placeholder="227" value="${esc(c.bagSize||'')}"></div>
+      <div class="frow"><label>Bag size (g)</label><input type="number" id="f-bagsize" placeholder="227" value="${esc(c.bagSize||'')}" oninput="autoPricePerGram()"></div>
+      <div class="frow"><label>Full price</label><input type="number" step="0.01" id="f-fullprice" placeholder="199" value="${esc(c.fullPrice||'')}" oninput="autoPricePerGram()"></div>
+      <div class="frow"><label>Price/gram</label><input id="f-priceperg-display" value="" readonly placeholder="—"></div>
       <div class="ftextarea-wrap"><label>Taste notes</label><textarea id="f-taste" placeholder="Blueberry, jasmine, bright acidity...">${esc(c.tasteNotes||'')}</textarea></div>
       <div class="fsave-space"></div>
     </div>`;
   document.getElementById('addcoffee-overlay').classList.remove('hide');
   markSidebarOpen();
+  autoPricePerGram();
 }
 function closeAddCoffee(){closeAllSidebars();editingCoffeeId=null;photoDataUrl=null;render();}
 function autoReady(){const r=document.getElementById('f-roast').value;const d=document.getElementById('f-rest').value;document.getElementById('f-ready').value=addDays(r,d);}
 function autoBestBy(){const o=document.getElementById('f-open').value;document.getElementById('f-bestby').value=addDays(o,14);}
+function autoPricePerGram(){
+  const bag=parseFloat(document.getElementById('f-bagsize').value);
+  const price=parseFloat(document.getElementById('f-fullprice').value);
+  const out=document.getElementById('f-priceperg-display');
+  if(bag>0&&price>0)out.value='¥'+fmtMoney(price/bag)+'/g';
+  else out.value='';
+}
 function handlePhoto(e){
   const file=e.target.files[0];if(!file)return;
   const reader=new FileReader();
@@ -1118,6 +1161,7 @@ async function saveCoffee(){
     bestby:document.getElementById('f-bestby').value||'',
     bagSize:bagSize,
     remaining:(existing.remaining==null||existing.remaining==='')&&bagSize?String(parseFloat(bagSize)-sumDoses(existing.brewLog)):existing.remaining,
+    fullPrice:document.getElementById('f-fullprice').value||'',
     photo:photoDataUrl||existing.photo||null,
     brewLog:existing.brewLog||[],
     archived:existing.archived||false,
